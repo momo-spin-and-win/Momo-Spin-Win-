@@ -1,0 +1,210 @@
+<html><head>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Momo Spin &amp; Win</title>
+<style>
+  :root{
+    --bg:#fff; --accent:#ff4d4d; --muted:#222;
+  }
+  html,body{height:100%;margin:0;background:var(--bg);font-family:-apple-system,system-ui,Segoe UI,Roboto,Arial}
+  .wrap{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;box-sizing:border-box}
+  h1{margin:8px 0 12px 0;font-size:20px;color:var(--muted)}
+  #wheel{width:86vw;max-width:360px;height:86vw;max-height:360px;border-radius:50%;border:8px solid #333;overflow:hidden;position:relative;transform:rotate(0deg)}
+  .slice{position:absolute;left:50%;top:50%;width:50%;height:50%;transform-origin:0 0;display:block}
+  #btn{margin-top:16px;padding:12px 18px;border-radius:10px;border:0;background:var(--accent);color:white;font-weight:700;font-size:16px}
+  .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);z-index:999}
+  .card{background:#fff;color:#111;padding:18px;border-radius:12px;min-width:260px;max-width:90%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.25)}
+  .card h2{margin:0 0 8px 0;font-size:18px}
+  .card p{margin:0 0 14px 0;font-size:16px}
+  .ok{background:var(--accent);color:#fff;border:0;padding:10px 14px;border-radius:8px;font-weight:700}
+  #fxCanvas{position:fixed;left:0;top:0;width:100vw;height:100vh;pointer-events:none;z-index:998}
+  .sadOverlay{position:fixed;left:0;top:0;width:100vw;height:100vh;display:none;align-items:center;justify-content:center;z-index:998;pointer-events:none}
+  .sadBubble{background:rgba(0,0,0,0.6);color:#fff;padding:10px 14px;border-radius:999px;font-weight:700}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Momo Spin &amp; Win 🎡</h1>
+    <div id="wheel" style="transition: transform 3.8s cubic-bezier(0.17, 0.67, 0.83, 0.67); transform: rotate(4800deg);"><div class="slice" style="transform: rotate(0deg) skewY(60deg); background: rgb(255, 207, 223);"></div><div class="slice" style="transform: rotate(30deg) skewY(60deg); background: rgb(255, 215, 166);"></div><div class="slice" style="transform: rotate(60deg) skewY(60deg); background: rgb(255, 239, 194);"></div><div class="slice" style="transform: rotate(90deg) skewY(60deg); background: rgb(208, 247, 232);"></div><div class="slice" style="transform: rotate(120deg) skewY(60deg); background: rgb(215, 227, 255);"></div><div class="slice" style="transform: rotate(150deg) skewY(60deg); background: rgb(200, 240, 232);"></div><div class="slice" style="transform: rotate(180deg) skewY(60deg); background: rgb(248, 211, 241);"></div><div class="slice" style="transform: rotate(210deg) skewY(60deg); background: rgb(255, 227, 227);"></div><div class="slice" style="transform: rotate(240deg) skewY(60deg); background: rgb(223, 242, 255);"></div><div class="slice" style="transform: rotate(270deg) skewY(60deg); background: rgb(232, 255, 217);"></div><div class="slice" style="transform: rotate(300deg) skewY(60deg); background: rgb(254, 240, 217);"></div><div class="slice" style="transform: rotate(330deg) skewY(60deg); background: rgb(230, 230, 255);"></div></div>
+    <button id="btn">SPIN 🎉</button>
+  </div>
+
+  <canvas id="fxCanvas" width="390" height="731" style="display: none;"></canvas>
+  <div class="sadOverlay" id="sadOverlay">
+    <div class="sadBubble">Oh no...</div>
+  </div>
+
+  <div class="modal" id="modal" style="display: none;">
+    <div class="card">
+      <h2 id="modalTitle">weeeee 🤩 you win!</h2>
+      <p id="modalText">plan our next mishwar 🚙</p>
+      <button class="ok" id="modalOk">OK</button>
+    </div>
+  </div>
+
+<script>
+// PRIZES (12 slices)
+const prizes = [
+  "you lost 😢 big dysoo for comfort 😙",
+  "CHF 20 to our house fund 💰",
+  "poppo massage 🍑",
+  "a selfie with your wifey 🤳🏼",
+  "shoulder massage 💆🏽‍♂️",
+  "say hi to Hämpu 🫢",
+  "give a challenge to Mishmish 🤓",
+  "deseeeeert! 🧁",
+  "plan our next mishwar 🚙",
+  "10 minutes browsing for our dream house 🏡",
+  "you lost 😢 big dysoo for comfort 😙",
+  "you lost 😢 big dysoo for comfort 😙"
+];
+
+const wheel = document.getElementById('wheel');
+const btn = document.getElementById('btn');
+const modal = document.getElementById('modal');
+const modalText = document.getElementById('modalText');
+const modalOk = document.getElementById('modalOk');
+const fxCanvas = document.getElementById('fxCanvas');
+const sadOverlay = document.getElementById('sadOverlay');
+
+const sectorAngle = 360 / prizes.length;
+const colors = ["#ffcfdf","#ffd7a6","#ffefc2","#d0f7e8","#d7e3ff","#c8f0e8",
+                "#f8d3f1","#ffe3e3","#dff2ff","#e8ffd9","#fef0d9","#e6e6ff"];
+
+for (let i=0;i<12;i++){
+  const s = document.createElement('div');
+  s.className = 'slice';
+  s.style.transform = 'rotate('+(i*sectorAngle)+'deg) skewY('+(90-sectorAngle)+'deg)';
+  s.style.background = colors[i];
+  wheel.appendChild(s);
+}
+
+// SOUND
+function playWin(){ try{
+  const ctx=new(window.AudioContext||window.webkitAudioContext)();
+  const o=ctx.createOscillator(),g=ctx.createGain();
+  o.connect(g);g.connect(ctx.destination);
+  o.type='sine';
+  let t=ctx.currentTime;
+  g.gain.setValueAtTime(0.12,t);
+  o.frequency.setValueAtTime(660,t);
+  o.frequency.setValueAtTime(880,t+0.15);
+  o.frequency.setValueAtTime(660,t+0.3);
+  o.frequency.setValueAtTime(990,t+0.45);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+1);
+  o.start(t);o.stop(t+1);
+}catch(e){}}
+
+function playSad(){ try{
+  const ctx=new(window.AudioContext||window.webkitAudioContext)();
+  const o=ctx.createOscillator(),g=ctx.createGain();
+  o.connect(g);g.connect(ctx.destination);
+  o.type='sawtooth';
+  let t=ctx.currentTime;
+  g.gain.setValueAtTime(0.06,t);
+  o.frequency.setValueAtTime(220,t);
+  o.frequency.linearRampToValueAtTime(130,t+0.5);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+1);
+  o.start(t);o.stop(t+1);
+}catch(e){}}
+
+// CONFETTI/FLOWERS
+function burst(kind){
+  const c=fxCanvas, w=c.width=innerWidth, h=c.height=innerHeight;
+  const ctx=c.getContext('2d');
+  c.style.display='block';
+  let parts=[];
+  for(let i=0;i<40;i++){
+    const a=Math.random()*Math.PI*2;
+    const sp=2+Math.random()*6;
+    parts.push({
+      x:w/2, y:h/3,
+      vx:Math.cos(a)*sp, vy:Math.sin(a)*sp,
+      s:8+Math.random()*10, rot:0
+    });
+  }
+  function tick(){
+    ctx.clearRect(0,0,w,h);
+    parts.forEach(p=>{
+      p.x+=p.vx; p.y+=p.vy; p.vy+=0.15;
+      ctx.save(); ctx.translate(p.x,p.y);
+      if(kind==="flowers"){
+        ctx.font=p.s+"px serif"; ctx.fillText("🌸",0,0);
+      }else{
+        ctx.fillStyle="#ff66cc"; ctx.fillRect(-p.s/2,-p.s/2,p.s,p.s*0.6);
+      }
+      ctx.restore();
+    });
+    parts=parts.filter(p=>p.y<h+50);
+    if(parts.length) requestAnimationFrame(tick);
+    else { c.style.display='none'; }
+  }
+  tick();
+}
+
+// SAD OVERLAY
+function sadFlash(){
+  sadOverlay.style.display='flex';
+  sadOverlay.style.opacity='1';
+  setTimeout(()=>{
+    sadOverlay.style.transition='opacity 0.8s';
+    sadOverlay.style.opacity='0';
+    setTimeout(()=>{
+      sadOverlay.style.display='none';
+      sadOverlay.style.transition='';
+    },850);
+  },600);
+}
+
+// MODAL
+modalOk.onclick = () => modal.style.display='none';
+
+// SPIN LOGIC
+let spinning=false, acc=0;
+
+btn.onclick = () => {
+  if(spinning) return;
+  spinning=true;
+
+  const chosen=Math.floor(Math.random()*prizes.length);
+  const spins=4+Math.floor(Math.random()*5);
+  const offset=sectorAngle/2;
+  const final=spins*360 + (360 - (chosen*sectorAngle + offset));
+
+  acc+=final;
+  wheel.style.transition='transform 3.8s cubic-bezier(.17,.67,.83,.67)';
+  wheel.style.transform='rotate('+acc+'deg)';
+
+  wheel.addEventListener('transitionend', function end(){
+    wheel.removeEventListener('transitionend', end);
+    spinning=false;
+
+    const norm=((360 - (acc%360))+360)%360;
+    const idx=Math.floor(norm/sectorAngle)%prizes.length;
+    const prize=prizes[idx];
+
+    const lost = prize.includes("you lost");
+
+    if(lost){
+      playSad();
+      sadFlash();
+      setTimeout(()=>{
+        modalText.textContent = prize;
+        document.getElementById('modalTitle').textContent="aww 🙁 you lost";
+        modal.style.display='flex';
+      },600);
+    } else {
+      playWin();
+      Math.random()<0.5?burst("flowers"):burst("confetti");
+      setTimeout(()=>{
+        modalText.textContent = prize;
+        document.getElementById('modalTitle').textContent="weeeee 🤩 you win!";
+        modal.style.display='flex';
+      },600);
+    }
+
+    // ------- DAILY LOCK SET HERE -------
+    completion(); // calls Scriptable handler below
+  });
+};
+</script>
+</body></html>
